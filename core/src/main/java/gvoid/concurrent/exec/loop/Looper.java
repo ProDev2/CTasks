@@ -114,29 +114,33 @@ public class Looper implements Runnable {
         }
     }
 
-    public void handleNonBlocking() {
+    @SuppressWarnings("UnusedReturnValue")
+    public boolean handleNonBlocking() {
         try {
-            handle(IMMEDIATE_TIMEOUT);
+            return handle(IMMEDIATE_TIMEOUT);
         } catch (InterruptedException ignored) {
+            return false;
         }
     }
 
-    public void handleBlocking() throws InterruptedException {
-        handle(DEFAULT_TIMEOUT);
+    @SuppressWarnings("UnusedReturnValue")
+    public boolean handleBlocking() throws InterruptedException {
+        return handle(DEFAULT_TIMEOUT);
     }
 
-    public void handle(long timeout) throws InterruptedException {
+    @SuppressWarnings("UnusedReturnValue")
+    public boolean handle(long timeout) throws InterruptedException {
         Handler handler = mHandler;
         synchronized (mLock) {
             int state = mState;
-            if ((state & STATE_READY) != STATE_READY) return;
+            if ((state & STATE_READY) != STATE_READY) return false;
             state &= ~STATE_READY;
             if (handler != null && !handler.isClosed()) {
                 state |= STATE_STARTED;
             }
             mState = state;
             mLock.notifyAll();
-            if ((state & STATE_STARTED) != STATE_STARTED) return;
+            if ((state & STATE_STARTED) != STATE_STARTED) return false;
         }
 
         Request request;
@@ -145,14 +149,14 @@ public class Looper implements Runnable {
         try {
             //noinspection ConstantConditions
             request = handler.next(timeout);
-            if (request == null) return;
+            if (request == null) return false;
 
             synchronized (mLock) {
                 if ((mState & STATE_STARTED) != STATE_STARTED) break handle;
             }
 
             try {
-                if (request.execute()) return;
+                if (request.execute()) return true;
             } catch (Throwable tr) {
                 throwable = tr;
             }
@@ -177,6 +181,7 @@ public class Looper implements Runnable {
             } catch (Exception ignored) {
             }
         }
+        return true;
     }
 
     @Override
