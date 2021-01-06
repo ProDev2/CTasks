@@ -1,0 +1,9 @@
+plugins {
+    id 'java'
+}
+
+group 'org.gvoid'
+version '1.0'
+
+dependencies {
+}
