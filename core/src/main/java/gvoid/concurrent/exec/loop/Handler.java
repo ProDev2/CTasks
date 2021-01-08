@@ -277,26 +277,27 @@ public class Handler implements Closeable {
                         break entry;
                     }
 
-                    boolean failed = false;
+                    boolean removed = false;
+                    remove:
+                    synchronized (mLock) {
+                        if (size > mTimedTasks.size()) break remove;
+                        Entry tmpEntry = mTimedTasks.get(size - 1);
+                        if (entry != tmpEntry) break remove;
+                        mTimedTasks.remove(size - 1);
+                        removed = true;
+                    }
+
                     try {
                         Request request = entry.mRequest;
                         if (request.ready()) {
                             return request;
                         }
                     } catch (Throwable ignored) {
-                        failed = true;
+                        removed = false;
                     }
-                    retry = true;
 
-                    synchronized (mLock) {
-                        if (size <= mTimedTasks.size()) {
-                            Entry tmpEntry = mTimedTasks.get(size - 1);
-                            if (entry == tmpEntry) {
-                                mTimedTasks.remove(size - 1);
-                            } else failed = true;
-                        } else failed = true;
-                    }
-                    if (failed) entry = null;
+                    retry = true;
+                    if (!removed) entry = null;
                 } else entry = null;
 
                 if (mClosed) return null;
@@ -321,8 +322,8 @@ public class Handler implements Closeable {
                     } catch (Throwable ignored) {
                         break request;
                     }
-                    retry = true;
 
+                    retry = true;
                     synchronized (mLock) {
                         if (!mClosed) {
                             mTasks.addFirst(request);
